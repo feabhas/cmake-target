@@ -1,0 +1,78 @@
+FEABHOS INSTALLATION INSTRUCTIONS
+=================================
+
+FeabhOS is a Operating System Abstraction Layer (OSAL) designed to give a common API for teaching core operating system, and real-time programming, concepts.  As such, FeabhOS is not designed to be an all-encompasing OSAL, but it does contain enough elements to be practical and useful in production code.
+
+
+File Organisation
+-----------------
+
+FeabhOS is structured as follows:
+
+feabhOS
+-- C              These folders contain the C API
+      -- inc      Header files
+
+   -- <PLATFORM>  Platform-specific implementation (currently Win32 and FreeRTOS)
+      -- inc	    OS-specific definitions
+      -- src      OS-specific implementations
+
+-- C++03		  These folders contain the C++ API
+   -- inc         Header files (and template classes)
+   -- src         Class implementations
+
+-- C++14      These folders contain the Modern C++ (C++11 onwards) API
+   -- inc         Header files (and template classes)
+ 
+   
+
+NOTES:  
+    The C++ implementation is built on top of the C API; so 
+    the C API must be included even in a pure C++ project.
+    
+    The C++ implementations are mutually exclusive.  You cannot
+    have both the C++03 and C++14 implementations active at the
+    same time.  You must exclude one of the folders from the
+    project.
+
+
+Installing FeabhOS
+------------------
+
+The following steps must be performed to use FeabhOS in your project
+
+********************************************************************
+NOTE:
+    FEABHOS DOES NOT INCLUDE THE UNDERLYING OPERATING
+    SYSTEM.  YOU MUST HAVE THE APPROPRIATE OS INSTALLED
+    IN YOUR PROJECT BEFORE ADDING FEABHOS.
+
+*********************************************************************
+
+1.  Set up additional include paths.
+    For C projects:
+        feabhos/C/common/inc
+        feabhos/C/<PLATFORM>/inc
+       
+    For C++ projects you must also add:
+        feabhos/C++<version>/inc
+
+2.  Add the feabhOS source files to your project.
+    For C projects:
+        feabhos/C/<PLATFORM>/src/*.c           [REQUIRED]
+        feabhos/C/inc/*.h                      [OPTIONAL]
+
+    For C++03 projects ONLY:
+        feabhos/C++03/src/*.cpp                [REQUIRED]
+
+
+3.  Rebuild your system.
+
+
+NOTES:
+	For Linux (POSIX) platforms you must compile
+	with the C standard set to c99 (that is: -std=c99)
+	This is required for all the timing functions.
+
+  The C++14 implementation is header-only.  You do
+  not need to add a source folder.
