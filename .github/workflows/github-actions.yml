@@ -1,0 +1,15 @@
+name: Build Default Target Project
+run-name: ${{ github.actor }} is build the default project 🚀
+on: [push]
+jobs:
+  Build-Default-Project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: Install arm-none-eabi-gcc
+        uses: ryanwinter/arm-none-eabi-gcc@master
+        with:
+          release: '10-2021.10'
+      - name: Build Application
+        run:  ./build.sh
