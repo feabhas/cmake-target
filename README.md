@@ -1,3 +1,5 @@
+[![Build Default Target Project](https://github.com/feabhas/cmake-target/actions/workflows/github-actions.yml/badge.svg)](https://github.com/feabhas/cmake-target/actions/workflows/github-actions.yml)
+
 # Feabhas CMake Project Notes
 
 # Basic Usage
