@@ -1,0 +1,176 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.sh",
+            "args": [],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.sh",
+            "args": [
+                "clean"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Reset",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.sh",
+            "args": [
+                "reset"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run QEMU",
+            "dependsOn": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/run-qemu.sh",
+            "args": [
+                "${workspaceFolder}/build/debug/Application.elf"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run QEMU nographic",
+            "dependsOn": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/run-qemu.sh",
+            "args": [
+                "--nographic",
+                "${workspaceFolder}/build/debug/Application.elf"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run QEMU serial",
+            "dependsOn": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/run-qemu.sh",
+            "args": [
+                "serial",
+                "${workspaceFolder}/build/debug/Application.elf"
+            ],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run QEMU serial nographic",
+            "dependsOn": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/run-qemu.sh",
+            "args": [
+                "--nographic",
+                "serial",
+                "${workspaceFolder}/build/debug/Application.elf"
+            ],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Launch QEMU gdb",
+            "dependsOn": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/run-qemu.sh",
+            "args": [
+                "gdb",
+                "${workspaceFolder}/build/debug/Application.elf"
+            ],
+            "group": "none",
+            "isBackground": true,
+            "problemMatcher": [
+                {
+                    "pattern": [
+                    {
+                        "regexp": ".",
+                        "file": 1,
+                        "location": 2,
+                        "message": 3
+                    }
+                    ],
+                    "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": ".",
+                    }
+                }
+            ]
+        },
+        {
+            "label": "Launch QEMU gdb nographic",
+            "dependsOn": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/run-qemu.sh",
+            "args": [
+                "gdb",
+                "--nographic",
+                "${workspaceFolder}/build/debug/Application.elf"
+            ],
+            "group": "none",
+            "isBackground": true,
+            "problemMatcher": [
+                {
+                    "pattern": [
+                    {
+                        "regexp": ".",
+                        "file": 1,
+                        "location": 2,
+                        "message": 3
+                    }
+                    ],
+                    "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": ".",
+                    }
+                }
+            ]
+        },
+        {
+            "label": "Launch QEMU gdb serial",
+            "dependsOn": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/run-qemu.sh",
+            "args": [
+                "gdb",
+                "serial",
+                "${workspaceFolder}/build/debug/Application.elf"
+            ],
+            "group": "none",
+            "isBackground": true,
+            "problemMatcher": [
+                {
+                    "pattern": [
+                    {
+                        "regexp": ".",
+                        "file": 1,
+                        "location": 2,
+                        "message": 3
+                    }
+                    ],
+                    "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": ".",
+                    }
+                }
+            ]
+        },
+    ]
+}

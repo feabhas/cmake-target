@@ -1,0 +1,13 @@
+{
+  "Conditional include guard": {
+    "prefix": ["#ifndef"],
+    "body": [
+      "#pragma once",
+      "#ifndef _${TM_FILENAME_BASE/(.*)/${1:/upcase}/}_H_", 
+      "#define _${TM_FILENAME_BASE/(.*)/${1:/upcase}/}_H_", 
+      "$0",
+      "#endif"
+    ],
+    "description": "Conditional include guard"
+  }
+}
