@@ -13,6 +13,6 @@ target_include_directories(drivers-c INTERFACE
 
 target_link_libraries(drivers-c PRIVATE system)
 
-if (USE_RTOS)
+if (RTOS)
     target_link_libraries(drivers-c PRIVATE middleware)
 endif()

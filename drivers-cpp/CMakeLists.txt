@@ -15,6 +15,6 @@ target_include_directories(drivers-cpp PUBLIC
 
 target_link_libraries(drivers-cpp PRIVATE system)
 
-if (USE_RTOS)
+if (RTOS)
     target_link_libraries(drivers-cpp PRIVATE middleware)
 endif()

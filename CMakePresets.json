@@ -13,11 +13,11 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
                 "CMAKE_TOOLCHAIN_FILE": {
                     "type": "FILEPATH",
                     "value": "toolchain-STM32F407.cmake"
-                }
+                },
+                "EXCEPTIONS": "OFF"
             },
             "warnings": {
                 "uninitialized": true,
@@ -37,28 +37,47 @@
         {
             "name": "debug",
             "displayName": "Debug",
-            "inherits": "stm32-base",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
+            "inherits": "stm32-base"
         },
         {
             "name": "release",
             "displayName": "Release",
             "inherits": "stm32-base",
-            "cacheVariables": {
+            "environment": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
         }
     ],
     "buildPresets": [
         {
+            "name": "build-base",
+            "hidden": true,
+            "configurePreset": "debug",
+            "nativeToolOptions": [
+                "--no-print-directory"
+            ]
+        },
+        {
             "name": "debug",
-            "configurePreset": "debug"
+            "inherits": "build-base"
         },
         {
             "name": "release",
+            "inherits": "build-base",
             "configurePreset": "release"
+        },
+        {
+            "name": "clang-tidy",
+            "inherits": "debug",
+            "targets": [ "clang-tidy" ]
+        },
+        {
+            "name": "test",
+            "inherits": "debug",
+            "targets": [ "test" ],
+            "nativeToolOptions": [
+                "ARGS=--output-on-failure"
+            ]
         }
     ]
 }

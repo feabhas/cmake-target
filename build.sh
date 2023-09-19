@@ -94,10 +94,9 @@ ${DISCLAIMER}
 int main()
 {
     for(unsigned i=0; i< 5; ++i) {
-        std::cout << "tick..." << std::endl;
+        std::cout << "tick...\n";
         sleep(1000);
     };
-    return 0;
 }
 EOT
     fi
@@ -173,6 +172,15 @@ if [[ -n $EXC ]]; then
 fi
 
 # force clean generate
+
+FSTAMP='.files.md5'
+old=
+if [[ -f "$FSTAMP" ]]; then
+    old=$(cat $FSTAMP)
+fi
+find include src -name '*.[ch]' -o -name '*.cpp' | md5sum >$FSTAMP
+new=$(cat $FSTAMP)
+[[ "$old" != "$new" ]] && RESET=1
 
 if [[ -n $RESET && -d $BUILD/$CONFIG ]]; then
   rm -rf $BUILD/$CONFIG

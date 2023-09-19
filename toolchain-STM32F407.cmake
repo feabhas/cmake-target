@@ -49,6 +49,7 @@ set(ARM_OPTIONS -mcpu=cortex-m4 -mfloat-abi=soft
 
 add_compile_options(
   ${ARM_OPTIONS}
+  -Wno-psabi
   -fmessage-length=0
   -funsigned-char
   -ffunction-sections

@@ -13,13 +13,28 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(RTOS "Enable RTOS support" OFF)
 
-set(CLANG_TIDY_OPTIONS -checks=-*,readability-* CACHE STRING "clang-tidy options" )
+message(STATUS "Toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
+message(STATUS "Language versions: C++${CMAKE_CXX_STANDARD} C${CMAKE_C_STANDARD}")
+
+# clang-tidy config needs to include Arm cross compiler header dirs
+
+cmake_path(GET TOOLCHAIN PARENT_PATH TOOLCHAIN_BASE)
+cmake_path(SET TOOLCHAIN_INCLUDE ${TOOLCHAIN_BASE}/arm-none-eabi/include)
+FILE(GLOB TOOLCHAIN_CXX_VER RELATIVE ${TOOLCHAIN_INCLUDE}/c++ ${TOOLCHAIN_INCLUDE}/c++/*)
+
+message(STATUS "Toolchain include folder: ${TOOLCHAIN_INCLUDE}")
+
+set(CLANG_TIDY_OPTIONS 
+  --checks=-*,readability-* 
+  --extra-arg-before=-I${TOOLCHAIN_INCLUDE}/c++/${TOOLCHAIN_CXX_VER}/arm-none-eabi
+  --extra-arg-before=-I${TOOLCHAIN_INCLUDE}/c++/${TOOLCHAIN_CXX_VER}
+  --extra-arg-before=-I${TOOLCHAIN_INCLUDE}
+  CACHE STRING "clang-tidy options" 
+)
 
 # uncomment this line to include clang_tidy as part of 
 # the compilation phase
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy ${CLANG_TIDY_OPTIONS})
-
-message(STATUS "Using toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
 
 add_compile_options(
     -Wall
@@ -28,6 +43,7 @@ add_compile_options(
     -Wsign-conversion
     # -Werror
     # -save-temps
+    $<IF:$<STREQUAL:${CMAKE_CXX_STANDARD},20>,-Wno-deprecated,>
     $<$<CONFIG:DEBUG>:-g3>
     $<$<CONFIG:DEBUG>:-Og>
     $<$<CONFIG:RELEASE>:-O3>
@@ -73,22 +89,23 @@ target_include_directories(Application PRIVATE
 )
 
 if (IS_DIRECTORY ${CMAKE_SOURCE_DIR}/system)
-  add_subdirectory(system)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/system)
   target_link_libraries(Application PRIVATE system)
 endif()
 
-if (USE_RTOS AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/middleware)
-  add_subdirectory(middleware)
+if (RTOS AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/middleware)
+  message(STATUS "Building RTOS middleware")
+  add_subdirectory(${CMAKE_SOURCE_DIR}/middleware)
   target_link_libraries(Application PRIVATE middleware)
 endif()
 
 if (EXISTS ${CMAKE_SOURCE_DIR}/src/main.c AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/drivers-c)
-  add_subdirectory(drivers-c)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/drivers-c)
   target_link_libraries(Application PRIVATE drivers-c)
 endif()
 
 if (EXISTS ${CMAKE_SOURCE_DIR}/src/main.cpp  AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/drivers-cpp)
-  add_subdirectory(drivers-cpp)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/drivers-cpp)
   target_link_libraries(Application PRIVATE drivers-cpp)
 endif()
 
@@ -129,7 +146,7 @@ find_program(CLANG_TIDY clang-tidy)
 
 if (CLANG_TIDY)
     add_custom_target(
-        clang-tidy clang-tidy -p ${CMAKE_BINARY_DIR}/compile_commands.json ${CLANG_TIDY_OPTIONS} ${USER_SRC}
+        clang-tidy clang-tidy -p ${CMAKE_BINARY_DIR} ${CLANG_TIDY_OPTIONS} ${USER_SRC}
         DEPENDS ${USER_SRC}
     )
 endif()
