@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 3.21)
 project(target-cortexm LANGUAGES C CXX)
 
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_CXX_STANDARD 17)
+# store defaults in cache so they can be overriden on the command line
+
+set(CMAKE_C_STANDARD 11 CACHE STRING "Default C version")
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "Default C++ version")
+
+message(STATUS "Standards: C${CMAKE_C_STANDARD} C++${CMAKE_CXX_STANDARD}")
 
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -14,7 +18,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(RTOS "Enable RTOS support" OFF)
 
 message(STATUS "Toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
-message(STATUS "Language versions: C++${CMAKE_CXX_STANDARD} C${CMAKE_C_STANDARD}")
 
 # clang-tidy config needs to include Arm cross compiler header dirs
 
@@ -41,7 +44,6 @@ add_compile_options(
     -Wextra
     -Wconversion
     -Wsign-conversion
-    # -Werror
     # -save-temps
     $<IF:$<STREQUAL:${CMAKE_CXX_STANDARD},20>,-Wno-deprecated,>
     $<$<CONFIG:DEBUG>:-g3>

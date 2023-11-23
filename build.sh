@@ -28,25 +28,47 @@ if ! $CMAKE --version >/dev/null 2>&1; then
     exit 1
 fi
 
+GENERATOR='Ninja'
+BUILD_OPTIONS=
+BUILD_VERBOSE='-v'
+
+if [[ -n $(type -p ninja) ]]; then
+  echo "Build generator: ninja $(ninja --version)"
+elif [[ -n $(type -p make) ]]; then
+  echo "Build generator: $(make --version | head -1)"
+  GENERATOR='Unix Makefiles'
+  BUILD_OPTIONS='--no-print-directory'
+  BUILD_VERBOSE='VERBOSE=1'
+else
+  echo "Cannot find 'ninja' or GNU 'make' command:" >&2
+  exit 1
+fi
+
 function usage {
   cat <<EOT
 Usage: ${0#.*/} [options...]
   Wrapper around cmake build system.
-  Options:
+  Generate options:
     clean      -- remove object files
     reset      -- regenerate make files and do a clean build
     debug      -- build debug version (default)
     release    -- build release version
+    --rtos     -- include RTOS middleware if not found automatically
+    --exc      -- enable exceptions also --exceptions
+    --Cnn      -- set C langauge version to nn, also -c
+    --C++nn    -- set C langauge version to nn, also -cpp -CPP
+    -Dvar=val  -- define a CMake variable which must have a value  
+  Build options: 
+    --verbose  -- show compiler commands also -v
+    clean      -- remove object files and build
     test       -- run cmake with test target after a build
-    clang-tidy -- run clang-tidy after a build
+    clang-tidy -- run clang-tidy after a build 
+  Other options:
     --c        -- generate main.c if it doesn't exist
     --cpp      -- generate main.cpp if it doesn't exist
-    --exc      -- enable exceptions also --exceptions
-    --rtos     -- include RTOS middleware if not found automatically
-    --verbose  -- add verbose option also -v
     --help     -- this help information also -h -?
     -Werror    -- adds -Werror to build
-    -Dvar=val  -- define a CMake variable which must have a value
+
   
   Output written to build/debug (or build/release), executables:
       host:       build/debug/Application
@@ -117,15 +139,20 @@ EXC=
 for arg; do
   case "$arg" in
     --help|-h|-\?) usage    ;;
-    --verbose|-v)  VERBOSE='VERBOSE=1'  ;;
+    --verbose|-v)  VERBOSE="$BUILD_VERBOSE" ;;
     debug)         CONFIG=debug ;;
     release)       CONFIG=release ;;
     test)          TEST=1   ;;
     clang-tidy)    CLANG_TIDY=1 ;;
     clean)         CLEAN=1  ;;
     reset)         RESET=1  ;;
-    --c)           LANG=c   ;;
-    --cpp)         LANG=cpp ;;
+    --[cC])        LANG=c   ;;
+    --cpp|--CPP|--[cC]++)   
+                   LANG=cpp ;;
+    --[cC][0-9][0-9]) 
+                   CMAKE_OPTS="$CMAKE_OPTS -DCMAKE_C_STANDARD=${arg#--[cC]}" ;;
+    --[cC]++[0-9][0-9]|--CPP[0-9][0-9]|--cpp[0-9][0-9]) 
+                   CMAKE_OPTS="$CMAKE_OPTS -DCMAKE_CXX_STANDARD=${arg#--[cC]??}" ;;
     --exc|--exceptions)  
                    EXC='-DEXCEPTIONS=ON' ;;
     --rtos)        RTOS='-DRTOS=ON' ;;
@@ -191,20 +218,20 @@ fi
 # run cmake
 
 if [[ -n $RESET ]]; then
-    $CMAKE --preset ${CONFIG} $CMAKE_OPTS $RTOS $EXC
+    $CMAKE --preset ${CONFIG} -G "$GENERATOR"  $CMAKE_OPTS $RTOS $EXC
 fi
 
 if [[ -n $CLEAN ]]; then
   $CMAKE --build --preset ${CONFIG} --target clean
 fi
 
-if $CMAKE --build --preset ${CONFIG} -- --no-print-directory $VERBOSE
+if $CMAKE --build --preset ${CONFIG} -- $BUILD_OPTIONS $VERBOSE
 then
   if [[ -n $CLANG_TIDY ]]; then
-    $CMAKE --build --preset ${CONFIG} --target clang-tidy
+    $CMAKE --build --preset clang-tidy
   fi
   if [[ -n $TEST ]]; then
-    $CMAKE --build --preset ${CONFIG} -- test -- ARGS="--output-on-failure"
+    $CMAKE --build --preset test
   fi
 else
   exit $?

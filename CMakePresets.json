@@ -9,7 +9,7 @@
         {
             "name": "stm32-base",
             "hidden": true,
-            "generator": "Unix Makefiles",
+            "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
@@ -54,7 +54,6 @@
             "hidden": true,
             "configurePreset": "debug",
             "nativeToolOptions": [
-                "--no-print-directory"
             ]
         },
         {
