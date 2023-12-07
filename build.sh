@@ -32,7 +32,8 @@ GENERATOR='Ninja'
 BUILD_OPTIONS=
 BUILD_VERBOSE='-v'
 
-if [[ -n $(type -p ninja) ]]; then
+# Ninja build does not work with C++20 Modules
+if [[ -n $(type -p ninja) && ! -f src/Modules.txt ]]; then
   echo "Build generator: ninja $(ninja --version)"
 elif [[ -n $(type -p make) ]]; then
   echo "Build generator: $(make --version | head -1)"
