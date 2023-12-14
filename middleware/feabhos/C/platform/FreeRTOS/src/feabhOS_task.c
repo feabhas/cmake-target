@@ -1,20 +1,6 @@
-// -------------------------------------------------------------------------------------
-//  FeabhOS OS abstraction layer
-//
-//  DISCLAIMER:
-//  Feabhas is furnishing this item "as is". Feabhas does not provide any warranty
-//  of the item whatsoever, whether express, implied, or statutory, including, but
-//  not limited to, any warranty of merchantability or fitness for a particular
-//  purpose or any warranty that the contents of the item will be error-free.
-//  In no respect shall Feabhas incur any liability for any damages, including, but
-//  limited to, direct, indirect, special, or consequential damages arising out of,
-//  resulting from, or any way connected to the use of the item, whether or not
-//  based upon warranty, contract, tort, or otherwise; whether or not injury was
-//  sustained by persons or property or otherwise; and whether or not loss was
-//  sustained from, or arose out of, the results of, the item, or any services that
-//  may be provided by Feabhas.
-//
-// -------------------------------------------------------------------------------------
+// feabhOS_task.c
+// See project README.md for disclaimer and additional information.
+// Feabhas Ltd
 
 #include <assert.h>
 #include <stdbool.h>
@@ -123,7 +109,7 @@ static void deallocate(feabhOS_TASK task)
 //
 feabhOS_error feabhOS_task_create(feabhOS_TASK * const  task_handle,
                                   void (*function)(void*),
-                                  void *                param, 
+                                  void *                param,
                                   feabhOS_stack_size_t  stack,
                                   feabhOS_priority_t    priority)
 {
@@ -136,7 +122,7 @@ feabhOS_error feabhOS_task_create(feabhOS_TASK * const  task_handle,
   if(function == NULL)                                              return ERROR_PARAM1;
   if((stack < STACK_TINY) || (stack > STACK_HUGE))                  return ERROR_PARAM3;
   if((priority < PRIORITY_LOWEST) || (priority > PRIORITY_HIGHEST)) return ERROR_PARAM4;
-	
+
   // Exit if we couldn't allocate memory for the
   // task management structure
   //
@@ -164,7 +150,7 @@ feabhOS_error feabhOS_task_create(feabhOS_TASK * const  task_handle,
   // for (its own) control structures.
   //
   if(OS_error != pdPASS) return ERROR_OUT_OF_MEMORY;
-  
+
   *task_handle = task;
   return ERROR_OK;
 }

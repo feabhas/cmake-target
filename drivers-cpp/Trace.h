@@ -1,31 +1,17 @@
-// -----------------------------------------------------------------------------
 // Trace.h
-//
-// DISCLAIMER:
-// Feabhas is furnishing this item "as is". Feabhas does not provide any
-// warranty of the item whatsoever, whether express, implied, or statutory,
-// including, but not limited to, any warranty of merchantability or fitness
-// for a particular purpose or any warranty that the contents of the item will
-// be error-free.
-// In no respect shall Feabhas incur any liability for any damages, including,
-// but limited to, direct, indirect, special, or consequential damages arising
-// out of, resulting from, or any way connected to the use of the item, whether
-// or not based upon warranty, contract, tort, or otherwise; whether or not
-// injury was sustained by persons or property or otherwise; and whether or not
-// loss was sustained from, or arose out of, the results of, the item, or any
-// services that may be provided by Feabhas.
-// -----------------------------------------------------------------------------
+// See project README.md for disclaimer and additional information.
+// Feabhas Ltd
 
 #pragma once
-#ifndef TRACE_H_
-#define TRACE_H_
+#ifndef TRACE_H
+#define TRACE_H
 
 #ifdef TRACE_ENABLED
 #include <iostream>
 
-#define TRACE_MSG(msg) std::clog << "DEBUG: " << msg << std::endl
+#define TRACE_MSG(msg) std::clog << "DEBUG: " << msg << '\n'
 #define TRACE_VALUE(variable)                                                  \
-  std::clog << "DEBUG: " << #variable << " : " << variable << std::endl
+  std::clog << "DEBUG: " << #variable << " : " << variable << '\n'
 
 #else
 #define TRACE_MSG(msg)

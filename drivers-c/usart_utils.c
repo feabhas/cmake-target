@@ -1,20 +1,6 @@
-// -----------------------------------------------------------------------------
 // usart_utils.c
-//
-// DISCLAIMER:
-// Feabhas is furnishing this item "as is". Feabhas does not provide any
-// warranty of the item whatsoever, whether express, implied, or statutory,
-// including, but not limited to, any warranty of merchantability or fitness
-// for a particular purpose or any warranty that the contents of the item will
-// be error-free.
-// In no respect shall Feabhas incur any liability for any damages, including,
-// but limited to, direct, indirect, special, or consequential damages arising
-// out of, resulting from, or any way connected to the use of the item, whether
-// or not based upon warranty, contract, tort, or otherwise; whether or not
-// injury was sustained by persons or property or otherwise; and whether or not
-// loss was sustained from, or arose out of, the results of, the item, or any
-// services that may be provided by Feabhas.
-// -----------------------------------------------------------------------------
+// See project README.md for disclaimer and additional information.
+// Feabhas Ltd
 
 #include "stdint.h"
 #include "stm32f4xx.h"
@@ -38,22 +24,22 @@ void usart_enable_IO(void)
 
   uint32_t afr1 = GPIOB->AFR[1];
   afr1  |= (0x07 << ( 4 * (10 % 8)));	// USART 3 Alt fn
-  afr1  |= (0x07 << ( 4 * (11 % 8)));	// 
+  afr1  |= (0x07 << ( 4 * (11 % 8)));	//
   GPIOB->AFR[1] = afr1;
 
   uint32_t moder = GPIOB->MODER;
   moder  |= (0x02 << (10 * 2));		      // Alt function mode
-  moder  |= (0x02 << (11 * 2));		      // 
+  moder  |= (0x02 << (11 * 2));		      //
   GPIOB->MODER= moder;
 
   uint32_t ospeedr = GPIOB->OSPEEDR;
   ospeedr |= (0x03 << (10 * 2));	         // High speed
-  ospeedr |= (0x03 << (11 * 2));	         // 
+  ospeedr |= (0x03 << (11 * 2));	         //
   GPIOB->OSPEEDR = ospeedr;
 
   uint32_t pupdr = GPIOB->PUPDR;
   pupdr  |= (0x01 << (10 * 2));		       // Pull-up
-  pupdr  |= (0x01 << (11 * 2));		       // 
+  pupdr  |= (0x01 << (11 * 2));		       //
   GPIOB->PUPDR = pupdr;
 }
 
