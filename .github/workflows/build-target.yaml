@@ -16,5 +16,7 @@ jobs:
                 fetch-depth: 1     
             - name: build
               run: |
+                TOOLCHAIN=$(dirname $(find /opt/arm*/bin -name 'arm-none-eabi-gcc'))
+                PATH="$TOOLCHAIN:$PATH"
                 bash ./build.sh
 
