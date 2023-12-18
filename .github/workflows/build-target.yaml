@@ -1,0 +1,20 @@
+name: cmake-target
+
+on: [push]
+
+jobs:
+    build:         
+        runs-on: ubuntu-latest
+        environment: build
+        container:
+            image: feabhas/ubuntu-projects:latest
+            options: -u 1001
+        steps:
+            - name: checkout
+              uses: actions/checkout@v4
+              with:
+                fetch-depth: 1     
+            - name: build
+              run: |
+                bash ./build.sh
+
