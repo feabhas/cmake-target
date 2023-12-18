@@ -4,13 +4,15 @@
 
 TEMPLATE_PATH="./exercises . ../exercises .. $HOME/exercises $HOME"
 SOURCES="src include"
+BACKUP=src.bak
 
-# All folders in the templates folder must contain a src folder with
-# starter files for a C/C++ exercise which are copied to the src folder,
-# nested inc or include folder filess are copied to the include folder.
-# Existing src and include files are copied to the src.back folder
-# overwriting an existing back files.
-# The template may be built using the CMake in the current folder.
+# Creates self-contained workspaces for each template project by
+# copying current workspace to subfolder named after the template.
+# the workspace files are copied to a `project` subfolder.
+# If there is only one template it is copied into the current workspace
+# rather than create a new sufolder, current src/include files are saved
+# to a `src.bak` folder.
+# Templates folder must contain a src folder and optional include folder.
 
 set -o nounset 
 set -o errexit
@@ -34,9 +36,10 @@ EOT
 }
 
 function get_template_dir {
+  echo "Workspace $PWD"
   TEMPLATE_DIR=
   for dir in $TEMPLATE_PATH ; do
-    echo "Looking in $dir"
+    echo "Looking in $dir" >&2
     if [[ -d $dir/templates ]]; then
       TEMPLATE_DIR="$dir/templates"
       break
@@ -68,8 +71,23 @@ done
 [[ ! -e build.sh ]] && usage "No build.sh file found - cannot create template projects"
 
 [[ -z "$TEMPLATE_DIR" ]] && get_template_dir
-SOL=
-DIRS=()
+
+# check for single template and copy to workspace itself
+N=$(ls -l "$TEMPLATE_DIR" | grep '^d' | wc -l)
+if (( $N == 1 )); then
+  for name in "$TEMPLATE_DIR"/*; do
+    if [[ -d "$name" ]]; then
+        break
+    fi
+  done
+  echo "Copying template $name to current workspace"
+  for src in $SOURCES; do
+    mkdir -p "$BACKUP/$src"
+    mv "$src"/* "$BACKUP/$src" 2>/dev/null || true
+    cp -r "$name/$src" . 2>/dev/null || true
+  done
+  exit 0
+fi
 
 SOLUTIONS_DIR=$(dirname $TEMPLATE_DIR)/solutions
   
@@ -81,10 +99,11 @@ for file in *; do
   case "$file" in
     exercises|templates|solutions|LICENSE*|"$SCRIPT") continue;;
   esac
-  # check if generated template
+  # check if previously generated template
   [[ -f "$file/build.sh" ]] && continue
   FILES="$file $FILES"
 done
+
 for dir in .vscode .devcontainer; do
   [[ -d "$dir" ]] && FILES="$dir $FILES"
 done
@@ -115,7 +134,7 @@ for t in "$TEMPLATE_DIR"/*; do
   rm -rf src/* include/*
   if [[ -n $BUILD ]]; then 
     if ! (cd "$name"; ./build.sh reset 2>&1); then
-      echo "Build failed for template $SOL"
+      echo "Build failed for template $name"
       exit 1
     fi
     rm -rf "$name/build" 2>/dev/null || true
