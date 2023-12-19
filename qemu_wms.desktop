@@ -1,0 +1,13 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Encoding=UTF-8
+Name=QEMU WMS
+Exec=python3 /home/feabhas/projects/target/qemu_wms.py
+Version=1.0 
+Icon=/home/feabhas/projects/target/graphics/qemu-wms-icon.png
+Type=Application
+NoDisplay=false
+Categories=Development
+
+# copy this file to ~/.local/share/applications
+

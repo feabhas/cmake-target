@@ -1,6 +1,25 @@
 # Feabhas CMake Project Notes
 
-# Basic Usage
+**Contents**
+- [Feabhas CMake Project Notes](#feabhas-cmake-project-notes)
+- [Toolchain](#toolchain)
+- [Build the application](#build-the-application)
+  - [VS Code build tasks](#vs-code-build-tasks)
+  - [Command line build script](#command-line-build-script)
+- [Working with the QEMU emulator](#working-with-the-qemu-emulator)
+  - [Ubuntu VM or datakey](#ubuntu-vm-or-datakey)
+  - [Docker  container](#docker--container)
+- [Debugging](#debugging)
+  - [VS Code debug](#vs-code-debug)
+- [Building an exercise solution](#building-an-exercise-solution)
+- [Creating template starter projects](#creating-template-starter-projects)
+- [Static analysis using clang-tidy](#static-analysis-using-clang-tidy)
+- [Testing support](#testing-support)
+- [C/C++ Versions](#cc-versions)
+  - [C++20 Modules](#c20-modules)
+- [Disclaimer](#disclaimer)
+
+# Toolchain
 
 The Feabhas project build process uses [CMake](https://cmake.org/) as the underlying
 build system. CMake is itself a build system generator and we have configured
@@ -15,13 +34,24 @@ created a front end script to automate the build.
 You can add additional C/C++ source and header files to the `src` directory. If 
 you prefer you can place you header files in the `include` directory.
 
-The CMake build makes use of [Presets](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html)
-which are configured to use Ninja. The `build.sh` script checks whether Ninja is installed
-and if not it will fall back to use Unix Makfiles instead.
+The build process checks if the contents of the `src` and/or `include` folders
+have changed and automatically regenerates the build configuration.
 
-## To build the application
+# Build the application
 
-At the project root do:
+## VS Code build tasks
+
+VS Code has been configured with tasks to build the code and run a gdb session.
+
+From within VS Code you can use the keyboard shortcut **Ctrl-Shift-B** 
+to run one of the build tasks:
+    * **Build** standard build
+    * **Clean** to remove object and executable files
+    * **Reset** to regenerate the CMake build files
+
+## Command line build script
+
+In the project root run:
 
 ```
 $ ./build.sh
@@ -39,50 +69,86 @@ $ ./build.sh -v
 
 The `build.sh` script supports the `--help` option for more information.
 
-## To clean the build
+You have additional build options:
 
-To delete all object files and recompile the complete project use
-the `clean` option:
+   * **./build.sh clean**      *# delete working files for a clean rebuild*
+   * **./build.sh reset**      *# regenerate the complete build configuration*
+
+# Working with the QEMU emulator
+
+Once you have successfully built you application you can run it using the 
+supplied QEMU emulator. 
+
+Initially you should start the Python GUI application provided as `qemu_wms.py`. 
+
+## Ubuntu VM or datakey
+
+On an Ubuntu VM or datakey supplied by Feabhas there will be an icon in the left 
+hand *favourtites* panel that will launch the GUI application. 
+
+Alternatively or when using your own Linux or macOS host you can run the command:
 
 ```
-$ ./build.sh clean
+$ python3 qemu_wms.py
 ```
 
-To clean the entire build directory and regenerate a new build configuration use
-the `reset` option:
+## Docker  container
+
+**Important:** When working with Docker behind the GitHub `docker-target` 
+project you must run the Python GUI application on you host 
+(the docker container does not support graphic applications).
+
+On your host start the GUI application as follows:
+   * **Windows:** use File Explorer to select the project workspace and double click on the file `qemu_wms.py`
+   * **Linux**	start a shell command in the project workspace and enter the command `python3 qemu_wms.py`
+   * **macOS**	start a **Termianl** application in the project workspace and enter the command `python3 qemu_wms.py`
+
+After starting the Python GUI go back to VS Code to start the QEMU emulator:
+   * Press **Ctrl-Shift-P** (or **Shift-CMD-P** on macOS hosts) to launch the *Command Palette*
+     (you can also use the **View -> Command Palette** menu option)
+   * type `test task` and select **Tasks: Run Test Task** from the list
+   * select **Run QEMU** from the list of display test tasks
+
+The next time you use **Ctrl-Shift-P** the **asks: Run Test Task** will be at the top of the list. 
+
+Running your application will trigger a rebuild if the application is out of date.
+
+Alternatively from the command line enter:
 
 ```
-$ ./build.sh reset
+$ ./run-qemu.sh
 ```
 
-# Using VS Code
+The run task starts QEMU which will pause waiting for a connection on localhost:8888.
 
-VS Code has been configured with tasks to build the code and run a gdb session.
+   * In the Python GUI click on the **Connect** button.
+ 
+This will connect to port 8888 on the emulator and QEMU will start executing your application. 
 
-## VS Build Tasks
-
-Use the keyboard shortcut `Ctrl-Shift-B` to run the default build.
-
-From within VS Code you can use the keyboard shortcut `Ctrl-Shift-B` 
-to run one of the build tasks:
-    * **Build** standard build
-    * **Clean** to remove object and executable files
-    * **Reset** to regenerate the CMake build files
-
-To run the application use `Ctrl-Shift-P` shortcut key, enter test in 
-the search field and then select `Tasks: Run Test Task` from the list of tasks shown. 
-The next time you use `Ctrl-Shift-P` the `Tasks: Run Test Task` will be at the top of the list. 
-    
-Run tasks are project specific. For the target
+•	In the search panel enter test (or test task):
+ 
+Other test tasks include:
     * **Run QEMU** to run the emulator using `./run-qemu.sh` 
     * **Run QEMU nographic** to run the emulator using `./run-qemu.sh --nographic` 
     * **Run QEMU serial** to run the emulator using `./run-qemu.sh serial` 
     * **Run QEMU serial nographic** to run the emulator using `./run-qemu.sh --nographic serial` 
 
-For the host:
-    * **Run Application** to run the built executable 
-    
-## VS Debug
+For exercises that work with the USART3 serial port you will need to run start the QEMU emulator with USART3 connected to port 7777.
+
+From within VS Code press:
+   * **Ctrl-Shift-P** and select task **QEMU serial** 
+
+From the command line you can use:
+
+```
+$ ./run_qemu.sh serial
+```
+
+When using the Python GUI click on the **Connect+Serial** button to connect to both the diagnostic (8888) and USART3 (7777) ports. The bottom area of the GUI will display an interactive text area you can use to send and receive using USART3.
+
+# Debugging
+
+## VS Code debug
 
 To debug your code with the interactive (visual) debugger press the `<F5>` key or use the
 **Run -> Start Debugging** menu.
@@ -96,14 +162,14 @@ Exception has occurred.
 
 This is normal: just close the warning popup and use the debug icon commands at the top 
 manage the debug system. The icons are (from left to right):
-  **continue**, **stop over**, **step into**, **step return**, **restart** and **quit**
+   * **continue** **stop over** **step into**  **step return** **restart** **quit**
 
 When working with QEMU additional debug launch tasks are available from the drop down list
-at the top of the debug view. There are:
+at the top of the debug view:
 
-    * **QEMU debug** for a debug session with graphic WMS window
-    * **QEMU nographic debug** for a debug session without the graphic WMS window
-    * **QEMU serial debug** for a debug session using the serial port
+   * **QEMU debug** for a debug session with graphic WMS window
+   * **QEMU nographic debug** for a debug session without the graphic WMS window
+   * **QEMU serial debug** for a debug session using the serial port
 
 Note that when using the debugger with a serial port you must use an external
 Linux terminal to run Telnet and must have the graphic WMS window displayed.
@@ -138,7 +204,7 @@ Do not use the `--all` option as this will build each solution in turn and is us
 as part of our Continuous Integration testing.
 
 
-# Creating the template starter projects
+# Creating template starter projects
 
 Some training courses supply one or more template starter projects containing
 a working application that will be refactored during the exercises.
@@ -183,9 +249,10 @@ Invoke the tests by adding the `test` option to the build command:
 ```
 ./build.sh test
 ```
+
 Tests are only run on a successful build of the application and all tests.
 
-You can also use `cmake` or `ctest` directly.
+You can also use `cmake` or `ctest` commands directly.
 
 # C/C++ Versions
 
@@ -194,74 +261,13 @@ default set in `MakeLists.txt` as C11 and C++17. The `build.sh` and `build-one.s
 accept a version option to choose a different language option. To compile against C99 add 
 the option `--c99 (or --C99) or for C++20 add --cpp20 (or --c++20 --C++20 --CPP20).
 
-# C++20 Modules
+## C++20 Modules
 
 Support for compiling C++ modules is enabled by creating a file `Modules.txt` in the
 `src` folder and defining each module filename on a separate line in this file. The build 
 ensures modules are compiled in the order defined in the `Modules.txt` file and before the 
 main `src` files. Following MSVC and VS Code conventions the modules should be defined 
 in `*.ixx` files.
-
-# Implementation Notes
-
-The `build.sh` script and `CMakeLists.txt` files are configured to automate the
-building projects as much as possible. The same configuration files can be used
-for both C and C++ projects with both host and target environments. The
-target environment also needs the Arm compiler settings file `toolchain-STM32F407.cmake`
-
-The `build-one.sh` script works with both scons and CMake (default): 
-   1. CMake is used if there is a `CMakeFiles.txt` file present
-   2. scons if `SConstruct` is present
-   3. otherwise the build is rejected
- 
-## Host and Target Projects
-
-The host and target projects use separate `build` and `CMakeList.txt` files which 
-have a lot in common. This description is based on the more complex target 
-configuration on the basis that the host version simply omits the functionality
-required for cross compiling to an Arm embedded system.
-
-## Build Shell Script
-
-The `build.sh` script will generate simple `main.c` or `main.cpp` sources files
-for the appropriate project type if these are not present.
-
-Neither template has a `src` folder, just the build files: a suitable
-starter `main.c` or `main.cpp` file is generated when the build script is first run.
-
-In the case of the target the following support folders:
-   * drivers-c     // supporting files for C courses
-   * drivers-cpp   // supporting files for C++ courses
-   * middleware    // RTOS files for all courses
-   * system        // Cortex-M files for all courses
-
-## Creating source files main.c or main.cpp
-
-The first time the `build.sh` script is run it will create any missing
-`src` and `include` folders and generate the appropriate `main.c/main.cpp`
-file. The VM hostnames are set to the course code so that on a VM the correct 
-C or C++ file will be created on the assumption that host names starting
-with `c-` or `ac-` will be C and all other hosts will be C++. The 
-presence of the `system` folder is used to identify an Arm target project.
-
-The course exercise build instructions could specify that the first time the script
-is run the options `-c` or `-cpp` can be added to the command line to generate
-the correct file for the course when not using a VM:
-
-```
-$ ./build.sh -c        # generate main.c
-$ ./build.sh -cpp      # generate main.cpp
-```
-
-## Handling user added or renamed source files
-
-**WARNING**: The CMake configuration uses wildcards for the source files and headers 
-in `src` and `include`. Once the make build files have been generated any 
-additional files added to these directories will not be included in the build. 
-
-The `build.sh` script attempts to check if the contents of the `src` and/or `include` folders
-have changed an automatically forces a `reset` build if required.
-
 
 # Disclaimer
 
