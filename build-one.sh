@@ -229,8 +229,10 @@ for EX in $EXERCISES; do
     fi
     status=$?
     if [[ $status != 0 ]]; then
-      echo "Build failed for solution $EX"
+      echo "Build failed for solution '$EXDIR'"
       exit $status
+    else
+      echo "Build succeded for solution '$EXDIR'"
     fi
     set -o errexit
   fi
