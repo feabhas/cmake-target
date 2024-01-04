@@ -6,7 +6,7 @@
 # It looks for solutions to exercises in a "solutions" folder
 # in a set of standard locations:
 
-SOL_PATH=". exercises .. ../exercises ../.. $HOME $HOME/exercises"
+SOL_PATH=". exercises .. ../exercises ../.. ../../exercises $HOME $HOME/exercises"
 
 # Solutions must be in folder names starting or ending with a digit and optional letter.
 # If a solution folder contains a MakeLists.txt file a CMake build is run
@@ -55,6 +55,13 @@ function trace {
 
 function get_solutions {
   SOLDIR=
+  for repo in *_exercises *_exercises/exercises; do
+    if [[ -d $repo/solutions ]]; then
+      [[ -n "$SOLDIR" ]] && err_exit "Workspace contains more than one cloned git repository"
+      SOLDIR="$repo/solutions" && break
+    fi
+  done
+  [[ -n $SOLDIR ]] && return
   for dir in $SOL_PATH ; do
     [[ -d $dir/solutions ]] && SOLDIR="$dir/solutions" && break
   done
@@ -80,7 +87,7 @@ QUIET=
 EX=
 COPY=
 
-[[ -z $SOLDIR ]] && get_solutions 
+get_solutions 
 [[ -z $SOLDIR ]] && err_exit "Cannot find solutions folder"
 
 for arg; do
