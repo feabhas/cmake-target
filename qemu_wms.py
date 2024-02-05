@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Remote access to XPack QEMU Washing Machine Simulator
 
@@ -306,7 +307,6 @@ class WmsBoard:
     def build_overlay(self, root):
         graphics = SCRIPT_HOME / Board.graphics_lib
         zip = SCRIPT_HOME / Board.graphics_zip
-        print(zip)
         if graphics.exists():
             for tag, overlay in Board.overlays.items():
                 for i, name in enumerate(overlay.images):
