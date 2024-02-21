@@ -4,8 +4,8 @@
 
 #include "Peripherals.h"
 #include "Memory_map.h"
-
 #include <cstdint>
+
 using std::uint32_t;
 
 namespace
@@ -30,7 +30,7 @@ namespace STM32F407
     // Use static consts to give the compiler
     // the best opportunity to optimise
     //
-    constexpr uint32_t RCC_base { AHB1_base + 0x3800 };
+    constexpr uintptr_t RCC_base { AHB1_base + 0x3800 };
 
     static volatile uint32_t* RCC_AHB1_enable  { reinterpret_cast<uint32_t*>(RCC_base + 0x30) };
     static volatile uint32_t* RCC_APB1_enable  { reinterpret_cast<uint32_t*>(RCC_base + 0x40) };
