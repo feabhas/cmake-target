@@ -35,7 +35,8 @@ for arg; do
     gdb)           GDB='-S -gdb tcp::1234' ;;
     serial)        SERIAL='-serial tcp::7777,server,nodelay' ;;
     *.ELF|*.elf)   IMAGE="$arg" ;;
-    --nographic)   GRAPHIC=; DIAG= ;;
+    --nographic|-nographic)   
+                   GRAPHIC=; DIAG= ;;
     --sdl2)        GRAPHIC=y; DIAG= ;;
     -*)            OPTIONS="$OPTIONS $arg" ;;
     *)             echo "Unrecognised command argument: $arg" >&2
@@ -55,7 +56,7 @@ if [[ -z $QEMU ]]; then
 fi
 
 if [[ -z "$GRAPHIC" ]]; then
-  OPTIONS="$OPTIONS -nographic"
+  OPTIONS="$OPTIONS -nographic --chardev file,path=/dev/tty,mux=on,id=c0 -mon chardev=c0 -serial chardev:c0"
 fi
 
 set -x
@@ -63,4 +64,3 @@ $QEMU --verbose --board Feabhas-WMS -d unimp,guest_errors \
       --semihosting-config enable=on,target=native \
       $OPTIONS $GDB $SERIAL $DIAG \
       --image $IMAGE
-
