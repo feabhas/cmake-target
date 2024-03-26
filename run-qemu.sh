@@ -2,8 +2,14 @@
 # QEMU Invocation
 # see https://www.qemu.org/docs/master/system/invocation.html
 
+set -o nounset 
+set -o errexit
+
 TARGET=Application.elf
 IMAGE=./build/debug/$TARGET
+
+QEMU_PATH="xpack-qemu-arm-2.8.0-9/bin/qemu-system-gnuarmeclipse"
+QEMU_DIRS=". $HOME /opt"
 
 function usage {
   cat <<EOT
@@ -15,13 +21,11 @@ Usage: ${0#.*/} [qemu-options] [diag] [gdb] [serial] [elf-image]
     gdb           - start GDB server on port 1234
     --nographic   - switch off graphic support
     --sdl2        - use built-in graphics instead of remote port 8888
+    --help     -- this help information also -h -?
   Use Ctrl-A X to quit QEMU if using --nographic.
 EOT
   exit 1
 }
-
-QEMU_PATH="xpack-qemu-arm-2.8.0-9/bin/qemu-system-gnuarmeclipse"
-QEMU_DIRS=". $HOME /opt"
 
 DIAG='-serial telnet:localhost:8888,server,nodelay'
 GRAPHIC=
@@ -40,7 +44,7 @@ for arg; do
     --sdl2)        GRAPHIC=y; DIAG= ;;
     -*)            OPTIONS="$OPTIONS $arg" ;;
     *)             echo "Unrecognised command argument: $arg" >&2
-	                 usage ;;
+	           usage ;;
     esac
 done
 
@@ -50,8 +54,13 @@ for dir in $QEMU_DIRS; do
   QEMU=
 done
 
-if [[ -z $QEMU ]]; then
+if [[ -z "$QEMU" ]]; then
   echo "Cannot find QEMU in standard locations: $QEMU_DIRS" >&2
+  exit 1
+fi
+
+if [[ ! -f "$IMAGE" ]]; then
+  echo "Missing image file: $IMAGE" >&2
   exit 1
 fi
 
@@ -60,7 +69,8 @@ if [[ -z "$GRAPHIC" ]]; then
 fi
 
 set -x
-$QEMU --verbose --board Feabhas-WMS -d unimp,guest_errors \
-      --semihosting-config enable=on,target=native \
-      $OPTIONS $GDB $SERIAL $DIAG \
-      --image $IMAGE
+"$QEMU" --verbose --board Feabhas-WMS -d unimp,guest_errors \
+        --semihosting-config enable=on,target=native \
+        $OPTIONS $GDB $SERIAL $DIAG \
+        --image "$IMAGE"
+
