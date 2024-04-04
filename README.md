@@ -12,6 +12,7 @@
 - [Debugging](#debugging)
   - [VS Code debug](#vs-code-debug)
 - [Building an exercise solution](#building-an-exercise-solution)
+  - [Docker Image](#docker-image)
 - [Creating template starter projects](#creating-template-starter-projects)
 - [Static analysis using clang-tidy](#static-analysis-using-clang-tidy)
 - [Testing support](#testing-support)
@@ -176,33 +177,66 @@ Linux terminal to run Telnet and must have the graphic WMS window displayed.
 
 # Building an exercise solution
 
-To build any of the exercise solutions run the script:
+To build a solution run the command:
+
+```
+$ python3 copy_solution.py
+```
+
+Select the required solution from the list you are shown. 
+
+You may supply the solution number (optionally omitting a leading zero)
+on the command line to avoid the interactive prompt.
+
+On loading a solution the script will:
+
+   * save and commit your current files using git
+   * replace all of your source files with those from the the solution
+   * rebuild the solution
+
+**Note:** If the script cannot save your source files using git then they are
+copied to a `src.bak` folder. Only that last set of source files are saved in
+the backup folder.
+
+Alternatively you can build any of the exercise solutions using the 
+`build-one.sh` bash script:
+
 ```
 $ ./build-one.sh N 
 ```
-where `N` is the exercise number.
 
-In the pre-built VM images the solutions are stored in the home folder but a 
-fodler called `solutions`. 
+Where *N* is the exercise number. The exercises must be stored in the 
+workspace folder in one of the following locations:
+   * A cloned github repo name ending `_exercises`
+   * An `exercises/solutions`sub-folder in the workspace
+   * A `solutions`sub-folder in the workspace
 
-When working with a Docker image you will either be given an archive of the
-solutions, an archive of the exercises, a web link to download the archive,
-or a link to clone a GIT repo. 
+**NOTE:** this script will copy all files in the `src`  and
+`include` directories to a `src.bak` directory in the workspace; 
+any files already present in `src.bak` will be deleted.
 
-Once you have identified your local copy of the solutions you should 
-copy this folder into the workspace and rename it to `solutions`.
+## Docker Image
 
-A workspace sub-folder called `solutions` is always used in preference to any other 
-location.
+Inside your workspace subfolder called `scripts` there is 
+a `configure.py` script that can be used to copy the course exercises 
+into your workspace. 
 
-**NOTE:** building a solution will copy all files in the `src` directory to 
-the `src.bak` directory having removed any files already present in `src.bak`.
+You can run this script at any time from your host environment
+or, once you've opened the project workspace, from a terminal
+window in VS Code using the command:
 
-The `build-one.sh` script supports the `--help` option for more information.
+```
+$ python3 configure.py
+```
 
-Do not use the `--all` option as this will build each solution in turn and is used
-as part of our Continuous Integration testing.
+The script will supply a list of suitable courses for you to choose from and
+these exercises will be download from the appropriate Feabhas GitHub repo.
 
+You will now have a sub-folder with a name of the form `<COURSE>_exercises`.
+where `<COURSE>` is the unique code for your course (such as cpp11-501).
+
+If you know you course code you can supply this as a command line parameter
+to the script.
 
 # Creating template starter projects
 
