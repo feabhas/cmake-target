@@ -1,4 +1,13 @@
 #!/usr/bin/python3
+"""
+Usage: copy_solution.py [--help] [number]
+Copy a specified solution replacing the current `src` and
+`include` files. If `number` is not specified you can pick
+from a list of available exercise solutions.
+
+Current files are saved and committed to the git repo, or
+copied to the `src.bak` folder if git is not being used.
+"""
 import os
 import re
 import shutil
@@ -155,11 +164,30 @@ def cd_workspace():
     raise CopyError('Please run this script from within the workspace root folder')
 
 
+def parse_args():
+    number = ''
+    for arg in sys.argv[1:]:
+        if arg == '--help':
+            print(__doc__, file=sys.stderr)
+            exit(1)
+        elif arg.startswith('--') or number:
+            if number:
+                print(f'Solution number "{number}" already specified', file=sys.stderr)
+            else:
+                print(f'Unknown argument: "{arg}"', file=sys.stderr)
+            print(__doc__, file=sys.stderr)
+            exit(1)
+        else:
+            number = arg
+    return number
+
+
 def main():
     status = 1
     try:
+        number = parse_args()
         cd_workspace()
-        do_copy_solution(sys.argv[1] if len(sys.argv) > 1 else '')
+        do_copy_solution(number)
         status = 0
     except CopyError as ex:
         print(ex, file=sys.stderr)

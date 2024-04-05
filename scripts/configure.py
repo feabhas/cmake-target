@@ -1,4 +1,17 @@
 #!/usr/bin/python3
+"""
+Usage: configure.py [--help] [--target|--host] [code]
+Configure workspace for a given course by downloading the relevant 
+GitHub repo and initialising the workspace with a clean git repo 
+if no `.git` folder exists.
+
+If command line `code` is not supplied the script prompts to choose 
+from a list of available course codes based on the workspace 
+configuration (host or embedded target).
+
+The `--host` or `--target` saves to the current working folder
+and is intended for administration of a VM image.
+"""
 import os
 import re
 import shutil
@@ -43,7 +56,7 @@ class Courses:
     ]
 
 
-def read_course_code(selected: str = ''):
+def read_course_code(selected: str = '') -> str:
     if selected:
         print(f'Using command line argument "{selected}"')
         course = selected
@@ -57,7 +70,7 @@ def read_course_code(selected: str = ''):
           f'A typical course code looks like C-501, AC++11-502 or TDD++-301')
 
 
-def choose_course(options: list):
+def choose_course(options: list) -> str:
     print('Suggested courses:')
     for n, option in enumerate(options, 1):
         print(f'{n:2d}) {option}')
@@ -111,29 +124,30 @@ Just browse to "Applications/Python 3.6" and double-click "Install Certificates.
                              f'Please check your spelling or ask your instructor for help')
 
 
-def download_course(course: str):
+def download_course(course: str) -> Path:
     repo = course + Config.repo_suffix
     url = Config.url_code_base + repo + Config.url_code_path
     path = Path(repo)
     check_exercise_exists(path)
     save_archive(course, path, url)
+    return path
 
 
-def course_repo(code: str):
+def course_repo(code: str) -> str:
     return code.replace('++', 'pp').lower()
 
 
-def do_fetch_exercises(target: bool, selected: str):
+def do_fetch_exercises(target: bool, selected: str) -> Path:
     course = read_course_code(selected)
     if not course:
         course = choose_course(Courses.target if target else Courses.host)
     if not course:
         raise ConfigureError('No course chosen')
     repo = course_repo(course)
-    download_course(repo)
+    return download_course(repo)
 
 
-def cd_workspace():
+def cd_workspace() -> bool:
     cwd = Path().absolute()
     for wd in cwd, cwd.parent:
         if (wd / 'src').exists():
@@ -142,11 +156,34 @@ def cd_workspace():
     raise ConfigureError('Please run this script from within the workspace root folder')
 
 
+def parse_args():
+    code = ''
+    target = False
+    dir_check = True
+    for arg in sys.argv[1:]:
+        if arg == '--target':
+            target, dir_check = True, False
+        elif arg == '--host':
+            dir_check = False
+        elif arg.startswith('--') or code:
+            if code:
+                print(f'Course code "{code}" already specified', file=sys.stderr)
+            elif arg != '--help':
+                print(f'Unknown argument: "{arg}"', file=sys.stderr)
+            print(__doc__, file=sys.stderr)
+            exit(1)
+        else:
+            code = arg
+    return code, target, dir_check
+
+
 def main():
     status = 1
     try:
-        target = cd_workspace()
-        do_fetch_exercises(target, sys.argv[1] if len(sys.argv) > 1 else '')
+        code, target, dir_check = parse_args()
+        if dir_check:
+            target = cd_workspace()
+        repo = do_fetch_exercises(target, code)
         print('\nCourse exercises configured OK')
         status = 0
     except ConfigureError as ex:
