@@ -56,7 +56,6 @@ function trace {
 
 function get_solutions {
   SOLDIR=
-  set -x
   for loc in $LOCATIONS; do
     for dir in $SOL_PATH ; do
       sol=$(echo $loc/$dir/solutions)
