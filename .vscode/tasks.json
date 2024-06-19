@@ -30,21 +30,18 @@
             "problemMatcher": []
         },
         {
-            "label": "Run QEMU",
+            "label": "Run: QEMU",
             "dependsOn": "Build",
             "type": "shell",
             "command": "${workspaceFolder}/run-qemu.sh",
             "args": [
                 "${workspaceFolder}/build/debug/Application.elf"
             ],
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            },
+            "group": "test",
             "problemMatcher": []
         },
         {
-            "label": "Run QEMU nographic",
+            "label": "Run: QEMU nographic",
             "dependsOn": "Build",
             "type": "shell",
             "command": "${workspaceFolder}/run-qemu.sh",
@@ -52,14 +49,11 @@
                 "--nographic",
                 "${workspaceFolder}/build/debug/Application.elf"
             ],
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            },
+            "group": "test",
             "problemMatcher": []
         },
         {
-            "label": "Run QEMU serial",
+            "label": "Run: QEMU serial",
             "dependsOn": "Build",
             "type": "shell",
             "command": "${workspaceFolder}/run-qemu.sh",
@@ -71,7 +65,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Run QEMU serial nographic",
+            "label": "Run: QEMU serial nographic",
             "dependsOn": "Build",
             "type": "shell",
             "command": "${workspaceFolder}/run-qemu.sh",
@@ -79,6 +73,17 @@
                 "--nographic",
                 "serial",
                 "${workspaceFolder}/build/debug/Application.elf"
+            ],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Test: clang-tidy",
+            "dependsOn": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.sh",
+            "args": [
+                "clang-tidy"
             ],
             "group": "test",
             "problemMatcher": []
@@ -174,3 +179,4 @@
         },
     ]
 }
+
