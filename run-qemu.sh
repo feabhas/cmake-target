@@ -65,7 +65,7 @@ if [[ ! -f "$IMAGE" ]]; then
 fi
 
 if [[ -z "$GRAPHIC" ]]; then
-  OPTIONS="$OPTIONS -nographic --chardev file,path=/dev/tty,mux=on,id=c0 -mon chardev=c0 -serial chardev:c0"
+  OPTIONS="$OPTIONS -nographic --chardev file,path=/dev/null,mux=on,id=c0 -mon chardev=c0 -serial chardev:c0"
 fi
 
 set -x
