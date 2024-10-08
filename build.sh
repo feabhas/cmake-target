@@ -69,11 +69,19 @@ EOT
 function main_template {
     LANG="${1:-}"
     if [[ -z $LANG ]]; then
-        if [[ $HOSTNAME == *c-* ]]; then
+      LANG=cpp
+      if [[ $HOSTNAME == *c-* ]]; then
+          LANG=c
+      elif test -d *c-*_exercises; then
+          LANG=c
+      else
+        for dir in solutions/01* exercises/solutions/01*; do
+          if [[ -f $dir/main.c || -f $dir/src/main.c ]]; then
             LANG=c
-        else
-            LANG=cpp
-        fi
+            break
+          fi
+        done
+      fi
     fi
     if [[ $LANG = c ]]; then
         echo "Generating src/main.c"
