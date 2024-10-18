@@ -65,7 +65,9 @@ if [[ ! -f "$IMAGE" ]]; then
 fi
 
 if [[ -z "$GRAPHIC" ]]; then
-  OPTIONS="$OPTIONS -nographic --chardev file,path=/dev/null,mux=on,id=c0 -mon chardev=c0 -serial chardev:c0"
+# Old config required for remote Docker debugging - breaks serial output on USART3
+#  OPTIONS="$OPTIONS -nographic --chardev file,path=/dev/null,mux=on,id=c0 -mon chardev=c0 -serial chardev:c0"
+  OPTIONS="$OPTIONS -nographic"
 fi
 
 set -x
