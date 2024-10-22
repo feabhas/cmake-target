@@ -8,6 +8,7 @@ Icon=/home/feabhas/projects/target/graphics/qemu-wms-icon.png
 Type=Application
 NoDisplay=false
 Categories=Development
+StartupWMClass=Tk
 
 # copy this file to ~/.local/share/applications
 
