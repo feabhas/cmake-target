@@ -89,6 +89,16 @@
             "problemMatcher": []
         },
         {
+            "label": "Test: copy solution",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "${workspaceFolder}/scripts/copy_solution.py"
+            ],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
             "label": "Launch QEMU gdb",
             "dependsOn": "Build",
             "type": "shell",

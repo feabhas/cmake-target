@@ -77,14 +77,18 @@ def find_solutions():
 
 def select_solution(solutions: Path, selected: str = ''):
     folders = [s for s in sorted(solutions.iterdir()) if s.is_dir() and Config.solutions.match(s.name)]
+    if not folders:
+        raise CopyError(f'None standard solution folder structure - cannot copy from:\n  {solutions}')
     if selected:
         choice = [f for f in folders if f.name.startswith(selected) or f.name.startswith('0'+selected)]
         if len(choice) == 1:
             return choice[0]
         print(f'Cannot find solution matching command line parameter: "{selected}"')
+    col_width = 30 #max(len(str(f.name)) for f in folders)
     print('Available solutions:')
-    for option in folders:
-        print(f'{option.name}')
+    for n, option in enumerate(folders, 1):
+        print(f'{option.name:{col_width}}', end='\n' if n%2==0 else '   ')
+    if len(folders)%2 != 0: print()
     choice = input('Enter start of solution name (you can omit a leading zero)\nor q to quit? ').strip().lower()
     if not choice or choice.startswith('q'):
         raise CopyError('No choice made')
@@ -98,21 +102,12 @@ def select_solution(solutions: Path, selected: str = ''):
 
 def git_commit(solution: Path):
     try:
-        git = Path('.git')
-        if not git.exists():
-            if Path('/.dockerenv').exists() or os.getenv('USER') == 'feabhas':
-                print(f'Initialising git repo')
-                wd = Path().absolute()
-                run(f'{GIT} init -b main')
-                run(f'{GIT} config --global --add safe.directory {wd}')
-                run(f'{GIT} config core.safecrlf false')
-                run(f'{GIT} add -A')
-            else:
-                return False
-        print(f'Saving source files to git')
-        run(f'{GIT} add -A')
-        run(f'{GIT} commit -qm "Loading solution: {solution.name}"')
-        return True
+        git = Path() / '.git'
+        if git.exists():
+            print(f'Saving source files to git')
+            run(f'{GIT} add -A')
+            run(f'{GIT} commit -qm "Loading solution: {solution.name}"')
+            return True
     except subprocess.SubprocessError as ex:
         print(f'{ex}\ngit command failed')
     return False
