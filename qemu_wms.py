@@ -34,24 +34,26 @@ normally a problem but be aware that:
 See project README.md for disclaimer and additional information.
 Feabhas Ltd
 """
+import configparser
 import socket
 import threading
 import zipfile
 from collections import namedtuple
+from dataclasses import dataclass
 from enum import Enum
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 import select
 from tkinter import ttk, messagebox, simpledialog
-from typing import AnyStr, Optional
+from typing import AnyStr, Optional, List, Dict
 
-__VERSION__ = '1.2.0'
+__VERSION__ = '3.0.0'
 
 # timeout on socket - devcontainer ports seem to be open after client shuts down
 QEMU_TIMEOUT = 3.0
 # polling interval in ms
-POLL = 125
+POLL = 100
 # how often in secs to check if devices still enabled
 DEVICE_POLL = 5000
 # time in secs to display warnings
@@ -60,6 +62,9 @@ DISPLAY_WARN = 5000
 GEOMETRY = ('946x494', '946x682')
 # virtual event for listeners
 QEMU_MESSAGE = '<<qemu>>'
+# settings file
+SETTINGS_INI = Path('~/qemu_gui.ini').expanduser()
+SETTINGS = 'Settings'
 
 SCRIPT_HOME = Path(__file__).parent
 
@@ -70,26 +75,76 @@ class ButtonStyle:
     """ Identifies different button behaviours"""
     plain = 1
     latch = 2
-    door = 3
+    toggle = 3
 
 
 Button = namedtuple('Button', 'name pin, style down up x y radius')
 Overlay = namedtuple('Overlay', 'id x y images')
+Animation = namedtuple('Animation', 'pin_map_name, poll, direction overlay', defaults=(None, None))
 
 
-class WmsError(Exception):
+class BoardError(Exception):
     """ Used to wrap errors for popup messages"""
     pass
 
 
-class Config:
-    host: str = 'localhost'
+class PinMap:
+    def __init__(self, pins: List[int], reset: int, image: Optional[str]):
+        self.pins = pins
+        self.reset = reset
+        self.image = image
+        self.base_pin = pins[0]
+        self.state = 0
+        self.sprite = 0
+        self.poll = 0
+
+    def update_board(self, display, overlays: Dict[str, Overlay], pin: int, level: int, show: bool):
+        bit = pin - self.base_pin
+        if level:
+            self.state |= 1 << bit
+        else:
+            self.state &= ~(1 << bit)
+            self.sprite = self.reset
+        index = self.state if self.state else self.reset
+        if self.image and show:
+            display.update_image(overlays[self.image], index)
+
+    def animate_board(self, display, overlays: Dict[str, Overlay], update: int, backwards: bool=False, overlay: Optional['PinMap']=None):
+        if not self.state:
+            return
+        # print('anim', self.image)
+        self.poll += 1
+        if self.poll < update:
+            return
+        self.poll = 0
+        if not overlays:
+            return
+        limit = len(overlays[self.image].images)
+        if not backwards:
+            self.sprite = (self.sprite + 1) % limit
+        elif not self.sprite:
+            self.sprite = limit - 1
+        else:
+            self.sprite = self.sprite - 1
+        display.update_image(overlays[self.image], self.sprite)
+        if overlay:
+            display.update_image(overlays[overlay.image], overlay.state)
 
 
-class Board:
-    """ Static class for GUI layout configuration """
+class STM32:
     rcc_ahbenr = b'M40023830? '
     rcc_apb1enr = b'M40023840? '
+
+    led_overlays = {
+        # LED keys must match the led_names
+        'led-0': Overlay(0, 207, 298, ['led-0.png', 'led-1.png']),
+        'led-1': Overlay(1, 217, 298, ['led-0.png', 'led-1.png']),
+        'led-2': Overlay(2, 227, 298, ['led-0.png', 'led-1.png']),
+        'led-3': Overlay(3, 237, 298, ['led-0.png', 'led-1.png']),
+    }
+
+class WmsBoard:
+    """ Static class for GUI layout configuration """
     graphics_lib = 'graphics'
     graphics_zip = 'qemu-wms-graphics.zip'
     board_image = 'feabhas-wms-768.png'
@@ -97,22 +152,22 @@ class Board:
     image_x = 768
     image_y = 356
 
+    checkbox_labels = 'Led A', 'Led B', 'Led C', 'Led D', 'Motor', 'Dir', 'Latch'
+
     buttons = [
         Button('reset', None, ButtonStyle.plain, '', 'reset ', 32, 200, 8),
-        Button('door', 0, ButtonStyle.door, 'D0L0 ', 'D0d0 ', 730, 310, 15),
-        Button('PS1', 1, ButtonStyle.latch, 'D0L1 ', 'D0d1 ', 730, 130, 12),
-        Button('PS2', 2, ButtonStyle.latch, 'D0L2 ', 'D0d2 ', 695, 130, 12),
-        Button('PS3', 3, ButtonStyle.latch, 'D0L3 ', 'D0d3 ', 665, 130, 12),
-        Button('cancel', 4, ButtonStyle.latch, 'D0L4 ', 'D0d4 ', 615, 130, 12),
-        Button('accept', 5, ButtonStyle.latch, 'D0L5 ', 'D0d5 ', 575, 130, 12),
-        Button('motor', 6, ButtonStyle.plain, 'D0L6 ', 'D0d6 ', 650, 230, 50),
+        Button('door', 0, ButtonStyle.toggle, 'D0L0 ', 'D0d0 ', 730, 310, 15),
+        Button('PS1', 1, ButtonStyle.latch, 'D0l1 ', 'D0d1 ', 730, 130, 12),
+        Button('PS2', 2, ButtonStyle.latch, 'D0l2 ', 'D0d2 ', 695, 130, 12),
+        Button('PS3', 3, ButtonStyle.latch, 'D0l3 ', 'D0d3 ', 665, 130, 12),
+        Button('cancel', 4, ButtonStyle.latch, 'D0l4 ', 'D0d4 ', 615, 130, 12),
+        Button('accept', 5, ButtonStyle.latch, 'D0l5 ', 'D0d5 ', 575, 130, 12),
+        Button('motor', 6, ButtonStyle.plain, 'D0l6 ', 'D0d6 ', 650, 230, 50),
     ]
 
-    overlays = {
-        'ledA': Overlay(0, 207, 298, ['led-0.png', 'led-1.png']),
-        'ledB': Overlay(1, 217, 298, ['led-0.png', 'led-1.png']),
-        'ledC': Overlay(2, 227, 298, ['led-0.png', 'led-1.png']),
-        'ledD': Overlay(3, 237, 298, ['led-0.png', 'led-1.png']),
+
+    overlays = STM32.led_overlays | {
+        # latch key names must match button names
         'PS1': Overlay(4, 702, 26, ['ps1-0.png', 'ps1-1.png']),
         'PS2': Overlay(5, 667, 26, ['ps2-0.png', 'ps2-1.png']),
         'PS3': Overlay(6, 632, 26, ['ps3-0.png', 'ps3-1.png']),
@@ -123,9 +178,21 @@ class Board:
             'sseg-12.png', 'sseg-13.png', 'sseg-14.png', 'sseg-15.png'
         ]),
         'motor': Overlay(8, 592, 171, ['motor-00.png', 'motor-30.png', 'motor-60.png']),
-        'spinner': Overlay(9, 627, 203, ['motor-stop.png', 'motor-cw.png', 'motor-acw.png']),
+        'spinner': Overlay(9, 627, 203, ['motor-cw.png', 'motor-acw.png', 'motor-stop.png']),
         'door': Overlay(10, 711, 301, ['door-closed.png', 'door-open.png']),
     }
+
+    pin_map = {
+        'sseg': PinMap([8, 9, 10, 11], 0,'sseg'),
+        'motor': PinMap([12], 0, 'motor'),
+        'spinner': PinMap([13], 2, 'spinner'),
+        # there can only be one latch key for the whole board
+        'latch': PinMap([14], 0, None),
+    }
+
+    animation = [
+        Animation('motor', 1, 'spinner', 'spinner'),
+    ]
 
 
 class QEmuTag:
@@ -150,25 +217,61 @@ REPLY_MAP = {
     '=u0': QEmuTag.sr,    '=u3': QEmuTag.cr1,
 }
 
+class Config:
+    host: str = 'localhost'
+    diag_port: int = 8888
+    serial_port: int = 7777
+
+
+class Settings:
+    host: str = 'localhost'
+    diag_port: int = 8888
+    serial_port: int = 7777
+
+    def __init__(self):
+        self.parser = configparser.ConfigParser(interpolation=None)
+        if SETTINGS_INI.exists():
+            self.parser.read(SETTINGS_INI)
+            self.host = self.parser[SETTINGS].get('host', Settings.host)
+            self.diag_port = int(self.parser[SETTINGS].get('diag_port', str(Settings.diag_port)))
+            self.serial_port = int(self.parser[SETTINGS].get('serial_port', str(Settings.serial_port)))
+
+    def save(self):
+        self.parser[SETTINGS] = dict(
+            host=self.host,
+            diag_port=self.diag_port,
+            serial_port=self.serial_port,
+        )
+        with open(SETTINGS_INI, 'w') as fp:
+            self.parser.write(fp)
+
+    def reset(self):
+        self.host = Settings.host
+        self.diag_port = Settings.diag_port
+        self.serial_port = Settings.serial_port
+        self.save()
+
 
 class QEmuListener:
     """ Socket listening class connect to host:8888"""
-    def __init__(self, gui, host='localhost', port=8888):
+    def __init__(self, gui, settings: Settings):
         self.gui = gui
         self.recv_buffer = bytearray()
         try:
-            self.socket = socket.create_connection((host, port), timeout=(2 if host == 'localhost' else 5))
+            self.socket = socket.create_connection(address=(settings.host, settings.diag_port),
+                                                   timeout=(2 if settings.host == 'localhost' else 5))
             self.socket.settimeout(0.1)
             self.select_list = [self.socket]
             listener = threading.Thread(target=self.listen)
             listener.daemon = True
             listener.start()
             self.write('noecho ')
-            self.write('listen ')
+            # just works by polling no need to async listener
+            # self.write('listen ')
         except socket.gaierror as err:
-            raise WmsError(f'Unknown host "{host}":\n{err}')
+            raise BoardError(f'Unknown host "{settings.host}":\n{err}')
         except (socket.timeout, ConnectionRefusedError, BrokenPipeError) as err:
-            raise WmsError(f'Network error: {err}')
+            raise BoardError(f'Network error: {err}')
 
     def close(self):
         self.socket.close()
@@ -250,14 +353,15 @@ class QEmuListener:
 
 class QEmuSerial:
     """ Socket polling class connect to host:7777"""
-    def __init__(self, host='localhost', port=7777):
+    def __init__(self, settings: Settings):
         try:
-            self.socket = socket.create_connection((host, port), timeout=(2 if host == 'localhost' else 5))
+            self.socket = socket.create_connection(address=(settings.host, settings.serial_port),
+                                                   timeout=(2 if settings.host == 'localhost' else 5))
             self.socket.settimeout(0)
         except socket.gaierror as err:
-            raise WmsError(f'Unknown host "{host}":\n{err}')
+            raise BoardError(f'Unknown host "{settings.host}":\n{err}')
         except (socket.timeout, ConnectionRefusedError, BrokenPipeError) as err:
-            raise WmsError(f'Network error: {err}')
+            raise BoardError(f'Network error: {err}')
 
     def close(self):
         self.socket.close()
@@ -283,123 +387,131 @@ class QEmuSerial:
             total += sent
 
 
-class WmsBoard:
+@dataclass
+class ImageInfo:
+    id: int
+    index: int
+
+
+class BoardDisplay:
     """ Maintains state of the graphic board display """
-    def __init__(self, canvas: tk.Canvas):
+    def __init__(self, canvas: tk.Canvas, board, manager=None):
         self.canvas = canvas
+        self.manager = manager
+        self.board = board
         self.latch = False
-        self.latched = [False] * len(Board.buttons)
-        self.sseg = 0
-        self.motor = False
-        self.sprite = 0
-        self.direction = 0
-        self.images = [0] * len(Board.overlays)
+        self.latched = [False] * len(self.board.buttons)
+        self.image_info = [ImageInfo(0, 0) for _ in self.board.overlays]
         self.icon = None
 
-    @staticmethod
-    def find_button(x: int, y: int):
-        for button in Board.buttons:
+    def find_button(self, x: int, y: int):
+        for button in self.board.buttons:
             if button.x - button.radius <= x <= button.x + button.radius:
                 if button.y - button.radius <= y <= button.y + button.radius:
                     return button
         return None
 
     def build_overlay(self, root):
-        graphics = SCRIPT_HOME / Board.graphics_lib
-        zip = SCRIPT_HOME / Board.graphics_zip
+        graphics = SCRIPT_HOME / self.board.graphics_lib
+        zip = SCRIPT_HOME / self.board.graphics_zip
         if graphics.exists():
-            for tag, overlay in Board.overlays.items():
+            for tag, overlay in self.board.overlays.items():
                 for i, name in enumerate(overlay.images):
                     with (graphics / name).open('rb') as file:
                         overlay.images[i] = tk.PhotoImage(master=root, data=file.read())
-            with (graphics / Board.icon).open('rb') as file:
+            with (graphics / self.board.icon).open('rb') as file:
                 self.icon = tk.PhotoImage(master=root, data=file.read())
-            with (graphics / Board.board_image).open('rb') as file:
+            with (graphics / self.board.board_image).open('rb') as file:
                 return tk.PhotoImage(master=root, data=file.read())
         elif zip.exists():
             with zipfile.ZipFile(zip) as archive:
-                for tag, overlay in Board.overlays.items():
+                for tag, overlay in self.board.overlays.items():
                     for i, name in enumerate(overlay.images):
                         with archive.open(name) as file:
                             overlay.images[i] = tk.PhotoImage(master=root, data=file.read())
-                with archive.open(Board.icon) as file:
+                with archive.open(self.board.icon) as file:
                     self.icon = tk.PhotoImage(master=root, data=file.read())
-                with archive.open(Board.board_image) as file:
+                with archive.open(self.board.board_image) as file:
                     return tk.PhotoImage(master=root, data=file.read())
         else:
-            raise WmsError(f'Cannot find graphics folder "{Board.graphics_lib}" or archive file "{Board.graphics_zip}"')
+            raise BoardError(f'Cannot find graphics folder "{self.board.graphics_lib}" or archive file "{self.board.graphics_zip}"')
 
     def reset(self):
         for pin in range(8, 15):
             self.update_device(pin, 0, None)
-        self.sprite = 0
+        if self.manager:
+            self.manager.reset(self)
+
+    def toggle_init(self):
+        for button in self.board.buttons:
+            if button.style == ButtonStyle.toggle:
+                self.update_button(button, 0)
 
     def update_image(self, overlay: Overlay, index: int):
-        if self.images[overlay.id]:
-            self.canvas.delete(self.images[overlay.id])
-        self.images[overlay.id] = self.canvas.create_image(overlay.x, overlay.y, image=overlay.images[index], anchor=tk.NW)
+        info = self.image_info[overlay.id]
+        if info.id:
+            if info.index == index:
+                return
+            self.canvas.delete(info.id)
+            info.id = 0
+        info.id = self.canvas.create_image(overlay.x, overlay.y, image=overlay.images[index], anchor=tk.NW)
+        info.index = index
 
-    led_names = 'ABCD'
+    def remove_image(self, overlay: Overlay):
+        info = self.image_info[overlay.id]
+        if info.id:
+            self.canvas.delete(info.id)
+            info.id = 0
 
     def update_device(self, pin: int, level: int, qemu: Optional[QEmuListener]):
         if 8 <= pin <= 11:
-            self.update_image(Board.overlays['led' + WmsBoard.led_names[pin-8]], level)
-            if level:
-                self.sseg |= 1 << (pin - 8)
-            else:
-                self.sseg &= ~(1 << (pin - 8))
-            self.update_image(Board.overlays['sseg'], self.sseg)
-        elif pin == 12:
-            if self.motor and not level:
-                self.sprite = 0
-                overlay = Board.overlays['motor']
-                self.update_image(Board.overlays['motor'], 0)
-                overlay = Board.overlays['spinner']
-                self.update_image(Board.overlays['spinner'], 0)
-            self.motor = bool(level)
-        elif pin == 13:
-            if self.direction != level:
-                overlay = Board.overlays['motor']
-                self.update_image(Board.overlays['motor'], self.sprite)
-                overlay = Board.overlays['spinner']
-                self.update_image(Board.overlays['spinner'], level)
-            self.direction = level
-        elif pin == 14:
-            self.latch = bool(level)
-            if not self.latch:
-                for button in Board.buttons:
-                    if not button.style == ButtonStyle.latch:
-                        continue
-                    self.latched[button.pin] = False
-                    if qemu:
-                        qemu.write(button.up)
-                for ps in 'PS1', 'PS2', 'PS3':
-                    self.update_image(Board.overlays[ps], level)
+            self.update_image(STM32.led_overlays[f'led-{pin - 8}'], level)
+        for name, map in self.board.pin_map.items():
+            if pin in map.pins:
+                show = self.manager.show(map.image) if self.manager else True
+                map.update_board(self, self.board.overlays, pin, level, show)
+                if name == 'latch':
+                    self.update_latch(level, qemu)
+                if self.manager:
+                    self.manager.set_state(self, map.image, level, map.state)
+
+
+    def update_latch(self, level: int, qemu: Optional[QEmuListener]):
+        self.latch = bool(level)
+        if not self.latch:
+            for button in self.board.buttons:
+                if not button.style == ButtonStyle.latch:
+                    continue
+                self.latched[button.pin] = False
+                if qemu:
+                    qemu.write(button.up)
+                overlay = self.board.overlays.get(button.name, None)
+                if overlay:
+                    self.update_image(overlay, level)
 
     def animate(self):
-        if self.motor:
-            limit = len(Board.overlays['motor'].images)
-            if not self.direction:
-                self.sprite = (self.sprite + 1) % limit
-            elif not self.sprite:
-                self.sprite = limit - 1
-            else:
-                self.sprite = self.sprite - 1
-            self.update_image(Board.overlays['motor'], self.sprite)
-            self.update_image(Board.overlays['spinner'], self.direction + 1)
+        for map_name, poll, direction_name, overlay_name in self.board.animation:
+            map = self.board.pin_map[map_name]
+            # if map.state and self.manager and self.manager.animate:
+            if map.state:
+                if not self.manager or self.manager.show(map.image):
+                    map.animate_board(self, self.board.overlays, poll,
+                                      self.board.pin_map[direction_name].state if direction_name else None,
+                                      self.board.pin_map[overlay_name] if overlay_name else None)
 
     def update_button(self, button: Button, level: int):
-        overlay = Board.overlays.get(button.name)
+        if self.manager:
+            self.manager.set_button(self, button.name, level)
+        overlay = self.board.overlays.get(button.name)
         if overlay:
             self.update_image(overlay, level)
-            # self.canvas.create_image(overlay.x, overlay.y, image=overlay.images[level], anchor=tk.NW)
 
     def button_down(self, button: Button, qemu: Optional[QEmuListener]):
         if button.style == ButtonStyle.latch:
             if self.latch and self.latched[button.pin]:
                 return
             self.latched[button.pin] = self.latch
-        elif button.style == ButtonStyle.door:
+        elif button.style == ButtonStyle.toggle:
             if self.latched[button.pin]:
                 self.latched[button.pin] = False
                 return
@@ -412,7 +524,7 @@ class WmsBoard:
         if button.style == ButtonStyle.latch:
             if self.latch and self.latched[button.pin]:
                 return
-        elif button.style == ButtonStyle.door:
+        elif button.style == ButtonStyle.toggle:
             if self.latched[button.pin]:
                 return
         self.update_button(button, 0)
@@ -481,10 +593,11 @@ class CheckBox(tk.Checkbutton):
 DisplayButton = namedtuple('DisplayButton', 'if_connected button')
 
 
-class WmsGui:
+class BoardGui:
     """ Builds and manages the GUI """
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, board, manager=None):
         self.root = root
+        self.manager= manager
         self.ticker = None
         self.stopping = False
         self.button = None
@@ -494,22 +607,37 @@ class WmsGui:
         self.warn_ticks = 0
         self.connected = Connect.disconnected
         self.reconnect = True
-        self.host = Config.host
+        self.settings = Settings()
+        # self.host = Config.host
+        # self.diag_port = Config.diag_port
+        # self.serial_port = Config.serial_port
         self.style = ttk.Style()
         self.style.configure('.', sticky=(tk.N, tk.W), font=('Sans Serif', 10), padding=5)
         self.style.configure('warning.TLabel', font=('Sans Serif', 11, 'italic'), padding=5)
 
         root.geometry(GEOMETRY[0])
-        root.title("Feabhas WMS")
+        root.title("Feabhas STM32F407")
         base = scroll_main(root)
         root.protocol("WM_DELETE_WINDOW", self.on_quit)
 
         self.menubar = tk.Menu(root)
         root.config(menu=self.menubar)
-        # self.menubar.add_cascade(label=" "*230)
-        self.menubar.add_command(label="Change host", command=self.on_change_host)
+        settings = tk.Menu(self.menubar, name='settings')
+        self.menubar.insert_cascade(index=1, label='settings', menu=settings)
+        settings.add_command(label='host name', command=self.on_change_host)
+        settings.add_command(label='diagnostic port', command=self.on_change_diag_port)
+        settings.add_command(label='serial port', command=self.on_change_serial_port)
+        settings.add_separator()
+        settings.add_command(label='save settings', command=self.on_save_settings)
+        settings.add_command(label='default settings', command=self.on_default_settings)
 
-        self.status = ttk.LabelFrame(base, text=f'QEMU host: {self.host}')
+        # root.config(menu=self.menubar)
+        # # self.menubar.add_cascade(label=" "*230)
+        # self.menubar.add_command(label="<Change host>", command=self.on_change_host)
+        # self.menubar.add_command(label="<Change diagnostic port>", command=self.on_change_diag_port)
+        # self.menubar.add_command(label="<Change serial port>", command=self.on_change_host)
+
+        self.status = ttk.LabelFrame(base, text=f'QEMU {self.settings.host}:{self.settings.diag_port}')
         self.status.pack(anchor=tk.W, padx=5, fill=tk.X)
         self.feedback = tk.Frame(self.status)
         self.feedback.pack(anchor=tk.W, side=tk.TOP, padx=5, fill=tk.X)
@@ -524,29 +652,30 @@ class WmsGui:
         ]
         self.do_enable_buttons(False)
 
-        wms = ttk.LabelFrame(base, text="STM32F407-WMS")
-        wms.pack(fill=tk.BOTH, pady=5, padx=5)
-        board = tk.Frame(wms)
-        board.pack(side=tk.RIGHT, pady=0, padx=0)
+        stm32 = ttk.LabelFrame(base, text="STM32F407")
+        stm32.pack(fill=tk.BOTH, pady=5, padx=5)
+        frame = tk.Frame(stm32)
+        frame.pack(side=tk.RIGHT, pady=0, padx=0)
         border = 3
-        canvas = tk.Canvas(board, width=Board.image_x-border, height=Board.image_y-border,
+        canvas = tk.Canvas(frame, width=board.image_x - border, height=board.image_y - border,
                            borderwidth=0, highlightthickness=border, highlightbackground="#444")
         canvas.pack(fill=tk.BOTH, expand=1, pady=5, padx=5)
         canvas.config(scrollregion=canvas.bbox(tk.ALL))
         canvas.bind('<Button-1>', self.on_b1_down)
         canvas.bind('<ButtonRelease-1>', self.on_b1_up)
         canvas.bind('<Motion>', self.on_move)
-        self.board = WmsBoard(canvas)
+        self.display = BoardDisplay(canvas, board, manager)
         try:
-            self.image = self.board.build_overlay(root)
+            self.image = self.display.build_overlay(root)
             canvas.create_image(0, 0, image=self.image, anchor=tk.NW)
-            if self.board.icon is not None:
-                root.iconphoto(False, self.board.icon)
+            if self.display.icon is not None:
+                root.iconphoto(False, self.display.icon)
+            self.display.toggle_init()
         except Exception as err:
             messagebox.showerror('Startup error', f'Error or missing graphics file:\n{err}')
             raise KeyboardInterrupt(err)
 
-        frame = tk.Frame(wms)
+        frame = tk.Frame(stm32)
         frame.pack(anchor=tk.N, side=tk.LEFT, padx=0, pady=0)
         self.mode = ttk.Label(frame, text='mode: 00000000')
         self.mode.pack(anchor=tk.W, side=tk.TOP, padx=0, pady=0)
@@ -557,12 +686,12 @@ class WmsGui:
         self.gpiod.pack(anchor=tk.W, side=tk.TOP, padx=0, pady=0)
         self.pins = [
             CheckBox(frame, text=text, state=tk.DISABLED)
-            for text in ('Led A', 'Led B', 'Led C', 'Led D', 'Motor', 'Dir', 'Latch')
+            for text in board.checkbox_labels
         ]
         for pin in self.pins:
             pin.pack(anchor=tk.W, side=tk.TOP, padx=0)
 
-        self.usart_frame = ttk.LabelFrame(base, text='Serial port')
+        self.usart_frame = ttk.LabelFrame(base, text=f'Serial port :{self.settings.serial_port}')
         # self.usart_frame.pack(anchor=tk.W, padx=5, pady=0, fill=tk.X) # only show if connected to usart
 
         frame = tk.Frame(self.usart_frame)
@@ -582,7 +711,7 @@ class WmsGui:
         self.putty.bind('<KeyPress>', self.on_putty_key)
 
         self.root.bind(QEMU_MESSAGE, self.on_qemu_message)
-        self.warning('Use "Connect" or "Connect+Serial" to attach to QEMU/WMS')
+        self.warning('Use "Connect" or "Connect+Serial" to attach to QEMU')
 
     def do_enable_buttons(self, connected: bool):
         for b in self.buttons:
@@ -607,7 +736,7 @@ class WmsGui:
             self.ticker = None
         self.do_enable_buttons(False)
         self.reset_state()
-        self.board.reset()
+        self.display.reset()
         if self.listener:
             self.listener.close()
             self.listener = None
@@ -646,7 +775,7 @@ class WmsGui:
         self.root.after(10, self.do_warning, msg)
 
     def on_move(self, event):
-        button = self.board.find_button(event.x, event.y)
+        button = self.display.find_button(event.x, event.y)
         if button != self.button:
             self.root.config(cursor='hand2' if button else '')
             self.button = button
@@ -655,21 +784,21 @@ class WmsGui:
     def on_b1_down(self, event):
         # print(event.x, event.y)
         if self.button:
-            self.board.button_down(self.button, self.listener)
+            self.display.button_down(self.button, self.listener)
 
     @catch()
     def on_b1_up(self, _):
         if self.button:
             if self.button.up.startswith('reset'):
                 self.gpiod.set(0)
-            self.board.button_up(self.button, self.listener)
+            self.display.button_up(self.button, self.listener)
 
     def show_connect_error(self, message: str, error=''):
         if error and not error.endswith('\n'):
             error += '\n'
         serial = ' serial' if self.putty['state'] == tk.NORMAL else ''
         messagebox.showerror('QEMU Connect Error',
-            f'''{message} (on "{self.host}")
+            f'''{message} (on "{self.settings.host}:{self.settings.diag_port}")
 {error}Please start QEMU in your container using:
 
 test task\t"Run QEMU{serial}"
@@ -691,21 +820,24 @@ or\t"./run-qemu.sh diag{serial}"''')
             self.idr['text'] = f'     idr: {value:04X}'
             for bit, pin in enumerate(self.pins, 8):
                 state = (value >> bit) & 1
+                if not self.reconnect and (bool(state) != pin.get()):
+                    self.display.update_device(bit, state, self.listener)
                 pin.set(state)
                 if self.reconnect:
-                    self.board.update_device(bit, state, self.listener)
+                    self.display.update_device(bit, state, self.listener)
             if self.reconnect:
                 self.reconnect = False
-                for button in Board.buttons:
+                for button in self.display.board.buttons:
                     if button.pin is None:
                         continue
                     if (value >> button.pin) & 1:
-                        self.board.button_down(button, None)
-                        self.board.button_up(button, None)
-        elif tag == QEmuTag.pin_low:
-            self.board.update_device(value, 0, self.listener)
-        elif tag == QEmuTag.pin_high:
-            self.board.update_device(value, 1, self.listener)
+                        self.display.button_down(button, None)
+                        self.display.button_up(button, None)
+        # pollling only - async listener not started
+        # elif tag == QEmuTag.pin_low:
+        #     self.display.update_device(value, 0, self.listener)
+        # elif tag == QEmuTag.pin_high:
+        #     self.display.update_device(value, 1, self.listener)
         elif tag == QEmuTag.usart3_enabled:
             usart3_on = (value >> 18) & 1
             self.usart3.set(1 if usart3_on else 0)
@@ -716,7 +848,7 @@ or\t"./run-qemu.sh diag{serial}"''')
         elif tag == QEmuTag.qemu_warning:
             self.warning(event.message)
         elif tag == QEmuTag.qemu_shutdown:
-            self.board.reset()
+            self.display.reset()
             if self.listener:
                 if self.connected == Connect.connected:
                     self.warning(f'QEMU has closed down')
@@ -754,10 +886,10 @@ or\t"./run-qemu.sh diag{serial}"''')
         if self.listener:
             self.do_poll_serial()
             self.do_query_qemu()
-            self.board.animate()
-            self.listener.write(Board.rcc_ahbenr)
+            self.display.animate()
+            self.listener.write(STM32.rcc_ahbenr)
             if self.serial:
-                self.listener.write(Board.rcc_apb1enr)
+                self.listener.write(STM32.rcc_apb1enr)
             if not self.stopping:
                 self.ticker = self.root.after(POLL, self.on_timer_running)
 
@@ -771,11 +903,11 @@ or\t"./run-qemu.sh diag{serial}"''')
 
     def do_connect(self, *args):
         try:
-            self.listener = QEmuListener(self, host=self.host)
+            self.listener = QEmuListener(self, self.settings)
             self.ticker = self.root.after(POLL, self.on_timer_running)
-        except WmsError as err:
-            self.show_connect_error('QEMU diagnostic port 8888 is not open', str(err))
-            self.do_warning(f'Cannot connect to QEMU on {self.host}')
+        except BoardError as err:
+            self.show_connect_error(f'QEMU diagnostic port {self.settings.host}:{self.settings.diag_port} is not open: {err}')
+            self.do_warning(f'Cannot connect to QEMU on {self.settings.host}')
             self.do_disconnect()
         finally:
             if not self.stopping:
@@ -786,19 +918,61 @@ or\t"./run-qemu.sh diag{serial}"''')
         self.do_start_connect('Connecting to QEMU diagnostics...')
         self.root.after(50, self.do_connect)
 
+    def do_settings_update(self):
+        self.status['text'] = f'QEMU {self.settings.host}:{self.settings.diag_port}'
+        self.usart_frame['text'] = f'Serial port :{self.settings.serial_port}'
+
+    def do_ask_setting(self, title, prompt, initial_value, number=False):
+        value = simpledialog.askstring(title, prompt, initialvalue=str(initial_value))
+        value = value.strip() if value else value
+        if not value:
+            return None
+        if number and not value.isdigit():
+            messagebox.showerror('Invalid port', f'Non numeric port number entered: {value}')
+            return
+        return str(value) if number else value
+
     @catch()
     def on_change_host(self):
-        host = simpledialog.askstring('Change QEMU WMS host',
-                                      'Enter new hostname?',
-                                      initialvalue=self.host)
+        # host = simpledialog.askstring('Change QEMU host',
+        #                               'Enter new hostname?',
+        #                               initialvalue=self.settings.host)
+        host = self.do_ask_setting('Change QEMU host', 'Enter new hostname?', self.settings.host)
         if not host:
             return
-        self.host = host
-        self.status['text'] = f'QEMU host: {self.host}'
+        self.settings.host = host
+        self.do_settings_update()
+
+    @catch()
+    def on_change_diag_port(self):
+        port = self.do_ask_setting('Change QEMU diagnostic port','Enter new diagnostic port number?',
+                                   self.settings.diag_port, number=True)
+        if not port:
+            return
+        self.settings.diag_port = port
+        self.do_settings_update()
+
+    @catch()
+    def on_change_serial_port(self):
+        port = self.do_ask_setting('Change QEMU serial port','Enter new serial port number?',
+                                   self.settings.serial_port, number=True)
+        if not port:
+            return
+        self.settings.serial_port = port
+        self.do_settings_update()
+
+    @catch()
+    def on_save_settings(self):
+        self.settings.save()
+
+    @catch()
+    def on_default_settings(self):
+        self.settings.reset()
+        self.do_settings_update()
 
     def do_connect_serial(self):
         try:
-            self.serial = QEmuSerial(host=self.host)
+            self.serial = QEmuSerial(self.settings)
             if self.putty['state'] != tk.NORMAL:
                 self.putty['state'] = tk.NORMAL
                 self.putty.insert(tk.END, '''Make sure you start 
@@ -811,9 +985,9 @@ Serial port connecting...
             self.usart_frame.pack(anchor=tk.W, padx=5, pady=0, fill=tk.X)
             self.root.geometry(GEOMETRY[1])
             self.do_connect()
-        except WmsError as err:
-            self.show_connect_error('QEMU serial port 7777 is not open', str(err))
-            self.do_warning(f'Cannot connect to {self.host}')
+        except BoardError as err:
+            self.show_connect_error(f'QEMU serial port {self.settings.host}:{self.settings.serial_port} is not open: {str}')
+            self.do_warning(f'Cannot connect to {self.settings.host}')
             self.do_disconnect()
         finally:
             if not self.stopping:
@@ -842,16 +1016,21 @@ Serial port connecting...
             pass
 
 
-def main():
+def start(board, manager=None):
     """ Main method builds GUI and starts TkInter main loop"""
     app = None
     try:
         root = tk.Tk()
-        app = WmsGui(root)
+        app = BoardGui(root, board, manager)
         root.mainloop()
     except KeyboardInterrupt:
         if app:
             app.close()
+
+
+
+def main():
+    start(WmsBoard)
 
 
 if __name__ == "__main__":
